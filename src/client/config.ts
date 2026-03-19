@@ -7,14 +7,20 @@ import { useLocale } from "./locale.js";
 export function useRouteSolidBaseConfig<ThemeConfig>(): Accessor<
 	SolidBaseResolvedConfig<ThemeConfig>
 > {
-	const { currentLocale } = useLocale();
+	const { currentLocale, currentVersion } = useLocale();
 
 	return createMemo(() => {
+		const version = currentVersion();
+		const versionConfig = version.isLatest ? {} : (version.themeConfig ?? {});
 		const localeConfig = currentLocale().config.themeConfig ?? {};
 
 		return {
 			...solidBaseConfig,
-			themeConfig: { ...solidBaseConfig.themeConfig, ...localeConfig },
+			themeConfig: {
+				...solidBaseConfig.themeConfig,
+				...versionConfig,
+				...localeConfig,
+			},
 		};
 	});
 }
