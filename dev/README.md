@@ -23,6 +23,20 @@ npm run dev
 npm run dev -- --open
 ```
 
+## Versioning smoke test
+
+This dev app is wired with a sample version config so you can manually test
+versioned docs routing.
+
+Try these routes while the dev server is running:
+
+- `/about` for latest docs
+- `/fr/about` for latest docs with locale
+- `/v1.1.16/about` for versioned docs
+- `/v1.1.16/es/about` for versioned docs with locale
+
+Sample frozen docs live in `dev/versioned_docs/v1.1.16/`.
+
 ## Building
 
 Solid apps are built with _presets_, which optimise your project for deployment to different environments.

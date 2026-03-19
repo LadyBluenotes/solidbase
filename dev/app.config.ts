@@ -25,6 +25,65 @@ export default {
 			titleTemplate: ":title – SolidBase",
 			issueAutolink: "https://github.com/kobaltedev/solidbase/issues/:issue",
 			editPath: "https://github.com/kobaltedev/solidbase/edit/main/docs/:path",
+			locales: {
+				root: {
+					label: "English",
+				},
+				fr: {
+					label: "Francais",
+				},
+			},
+			versions: {
+				current: "latest",
+				all: [
+					{
+						label: "v1.1.16",
+						path: "v1.1.16",
+						dir: "dev/versioned_docs/v1.1.16",
+						themeConfig: {
+							nav: [
+								{
+									text: "v1.1.16",
+									link: "/about",
+								},
+							],
+							sidebar: {
+								"/": [
+									{
+										title: "Versioned",
+										items: [
+											{
+												title: "Versioned Home",
+												link: "/",
+											},
+											{
+												title: "Versioned About",
+												link: "/about",
+											},
+										],
+									},
+								],
+							},
+						},
+						locales: {
+							root: {
+								label: "English",
+							},
+							es: {
+								label: "Espanol",
+								themeConfig: {
+									nav: [
+										{
+											text: "v1.1.16 ES",
+											link: "/about",
+										},
+									],
+								},
+							},
+						},
+					},
+				],
+			},
 			markdown: {
 				importCodeFile: {
 					transform: (_code, id) => {

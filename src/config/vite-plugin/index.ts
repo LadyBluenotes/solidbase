@@ -9,6 +9,7 @@ import type { SolidBaseResolvedConfig, ThemeDefinition } from "../index.js";
 import solidBaseLlmsPlugin from "./llms.js";
 import solidBaseRobotsPlugin from "./robots.js";
 import solidBaseSitemapPlugin from "./sitemap.js";
+import { patchVersionedRouters } from "./versioned-routes.js";
 import {
 	componentsModule,
 	configModule,
@@ -30,6 +31,11 @@ export default function solidBaseVitePlugin(
 			},
 			configResolved(resolvedConfig) {
 				root = resolvedConfig.root;
+				patchVersionedRouters(
+					solidBaseConfig,
+					resolvedConfig.root,
+					resolvedConfig.command === "build",
+				);
 			},
 			resolveId(id) {
 				if (id === configModule.id) return configModule.resolvedId;

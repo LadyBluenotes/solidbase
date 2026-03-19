@@ -8,3 +8,7 @@ export const fixtureSiteRoot = resolve(testRoot, "..", "fixtures");
 export function routeFixturePath(...parts: string[]) {
 	return resolve(fixtureSiteRoot, "src", "routes", ...parts);
 }
+
+export function versionedRouteFixturePath(...parts: string[]) {
+	return resolve(fixtureSiteRoot, "versioned_docs", ...parts);
+}

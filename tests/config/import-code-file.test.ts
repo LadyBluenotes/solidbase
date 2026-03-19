@@ -52,6 +52,16 @@ describe("remarkImportCodeFile", () => {
 		expect(tree.children[0].value).toContain('console.log("see ya");');
 	});
 
+	it("resolves relative file paths from the importing markdown file", async () => {
+		const tree: any = await transform(
+			'```ts file="../../../code/example.ts"\n```',
+			routeFixturePath("guide", "getting-started.mdx"),
+		);
+
+		expect(tree.children[0].meta).toContain('title="example.ts"');
+		expect(tree.children[0].value).toContain('console.log("hi");');
+	});
+
 	it("throws for missing files so broken imports are visible", async () => {
 		const missingPath = routeFixturePath("..", "..", "code", "missing.ts");
 

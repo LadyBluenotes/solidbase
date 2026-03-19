@@ -67,6 +67,11 @@ export function remarkImportCodeFile(options: ImportCodeFileOptions = {}) {
 				throw new Error(`Unable to parse file path ${attr}`);
 			}
 			const filePath = res.groups.path;
+			const resolvedFilePath = resolveCodeImportPath(
+				filePath,
+				file.path,
+				file.dirname,
+			);
 			const fromLine = res.groups.from
 				? Number.parseInt(res.groups.from, 10)
 				: undefined;
@@ -81,11 +86,11 @@ export function remarkImportCodeFile(options: ImportCodeFileOptions = {}) {
 
 			node.meta = `title="${filename}" ${node.meta ?? ""}`;
 
-			let fileContent = fs.readFileSync(filePath, "utf8");
+			let fileContent = fs.readFileSync(resolvedFilePath, "utf8");
 
 			const transformResult = options.transform?.(
 				fileContent,
-				filePath,
+				resolvedFilePath,
 				file.path,
 			);
 			if (transformResult !== undefined) fileContent = transformResult;
@@ -102,6 +107,37 @@ export function remarkImportCodeFile(options: ImportCodeFileOptions = {}) {
 				node.value = stripIndent(node.value);
 		});
 	};
+}
+
+function resolveCodeImportPath(
+	filePath: string,
+	importerPath: string,
+	importerDir: string,
+) {
+	if (path.isAbsolute(filePath)) return filePath;
+	if (filePath.startsWith("~/")) {
+		return path.resolve(getProjectSrcDir(importerPath), filePath.slice(2));
+	}
+
+	return path.resolve(importerDir, filePath);
+}
+
+function getProjectSrcDir(importerPath: string) {
+	const normalizedPath = importerPath.replace(/\\/g, "/");
+	const routesSegment = "/src/routes/";
+	const versionedSegment = "/versioned_docs/";
+
+	const routesIndex = normalizedPath.indexOf(routesSegment);
+	if (routesIndex !== -1) {
+		return importerPath.slice(0, routesIndex + "/src".length);
+	}
+
+	const versionedIndex = normalizedPath.indexOf(versionedSegment);
+	if (versionedIndex !== -1) {
+		return path.join(importerPath.slice(0, versionedIndex), "src");
+	}
+
+	return path.resolve(importerPath, "..", "..");
 }
 
 export function viteAliasCodeImports(): PluginOption {
