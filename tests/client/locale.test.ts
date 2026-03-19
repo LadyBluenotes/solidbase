@@ -3,108 +3,160 @@
 import { createRoot } from "solid-js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const pathname = vi.fn<() => string>(() => "/fr/guide/install");
-const navigate = vi.fn<(to: string) => Promise<void>>(() => Promise.resolve());
-const matchRest = vi.fn<() => string | undefined>(() => "guide/install");
+let currentPathname = "/";
 
-function setSolidBaseConfig(value: Record<string, unknown>) {
-	const store = ((globalThis as any).__solidBaseConfig ??= {}) as Record<
-		string,
-		unknown
-	>;
-	for (const key of Object.keys(store)) delete store[key];
-	Object.assign(store, value);
-}
-
-vi.mock("@solidjs/router", () => ({
-	useLocation: () => ({
-		get pathname() {
-			return pathname();
-		},
-	}),
-	useNavigate: () => navigate,
-	useMatch: () => () => ({ params: { rest: matchRest() } }),
+const navigate = vi.fn();
+const useLocation = vi.fn(() => ({
+	get pathname() {
+		return currentPathname;
+	},
 }));
+const useNavigate = vi.fn(() => navigate);
+const useMatch = vi.fn((pattern: () => string) => () => {
+	const matcher = pattern();
+	const prefix = matcher.replace("*rest", "");
 
-vi.mock("solid-js", async () => {
-	const actual = await vi.importActual<typeof import("solid-js")>("solid-js");
-	return {
-		...actual,
-		startTransition: (fn: () => void) => Promise.resolve(fn()),
-	};
+	if (prefix === "/") {
+		return { params: { rest: currentPathname.slice(1) } };
+	}
+
+	if (currentPathname === prefix.slice(0, -1)) {
+		return { params: { rest: "" } };
+	}
+
+	if (currentPathname.startsWith(prefix)) {
+		return { params: { rest: currentPathname.slice(prefix.length) } };
+	}
+
+	return undefined;
 });
 
-vi.mock("solid-js/web", () => ({
-	getRequestEvent: vi.fn(),
-	isServer: false,
+vi.mock("virtual:solidbase/config", () => ({
+	solidBaseConfig: {
+		lang: "en-US",
+		locales: {
+			root: { label: "English" },
+			fr: { label: "Francais" },
+		},
+		versions: {
+			current: "latest",
+			all: [
+				{
+					label: "v1.1.16",
+					path: "v1.1.16",
+					dir: "versioned_docs/v1.1.16",
+					locales: {
+						root: { label: "English" },
+						es: { label: "Espanol" },
+					},
+				},
+			],
+		},
+	},
 }));
 
-describe("locale client helpers", () => {
+vi.mock("@solidjs/router", () => ({
+	useLocation,
+	useNavigate,
+	useMatch,
+}));
+
+describe("locale helpers", () => {
 	afterEach(() => {
-		pathname.mockReset();
-		pathname.mockReturnValue("/fr/guide/install");
+		currentPathname = "/";
 		navigate.mockReset();
-		navigate.mockReturnValue(Promise.resolve());
-		matchRest.mockReset();
-		matchRest.mockReturnValue("guide/install");
-		setSolidBaseConfig({});
+		useLocation.mockClear();
+		useNavigate.mockClear();
+		useMatch.mockClear();
 		vi.resetModules();
 	});
 
-	it("selects the current locale, prefixes paths, and navigates when switching", async () => {
-		document.documentElement.lang = "";
-		setSolidBaseConfig({
-			lang: "en-US",
-			locales: {
-				root: { label: "English" },
-				fr: { label: "Francais" },
-			},
-		});
-
-		const { LocaleContextProvider, getLocaleLink, useLocale } = await import(
+	it("parses version, locale, and route path across supported URL shapes", async () => {
+		const { getLocale, getRoutePath, getVersion } = await import(
 			"../../src/client/locale.ts"
 		);
 
-		createRoot((dispose) => {
-			let value: ReturnType<typeof useLocale> | undefined;
+		expect(getVersion("/guide")).toMatchObject({
+			isLatest: true,
+			label: "latest",
+		});
+		expect(getLocale("/guide")).toMatchObject({ isRoot: true, code: "en-US" });
+		expect(getRoutePath("/guide")).toBe("/guide");
 
+		expect(getVersion("/fr/guide")).toMatchObject({ isLatest: true });
+		expect(getLocale("/fr/guide")).toMatchObject({ code: "fr" });
+		expect(getRoutePath("/fr/guide")).toBe("/guide");
+
+		expect(getVersion("/v1.1.16/guide")).toMatchObject({ path: "v1.1.16" });
+		expect(getLocale("/v1.1.16/guide")).toMatchObject({
+			isRoot: true,
+			code: "en-US",
+		});
+		expect(getRoutePath("/v1.1.16/guide")).toBe("/guide");
+
+		expect(getVersion("/v1.1.16/es/guide")).toMatchObject({ path: "v1.1.16" });
+		expect(getLocale("/v1.1.16/es/guide")).toMatchObject({ code: "es" });
+		expect(getRoutePath("/v1.1.16/es/guide")).toBe("/guide");
+	});
+
+	it("preserves the current version when switching locales", async () => {
+		currentPathname = "/v1.1.16/es/guide";
+
+		const { LocaleContextProvider, useLocale } = await import(
+			"../../src/client/locale.ts"
+		);
+
+		let localeApi: ReturnType<typeof useLocale> | undefined;
+
+		const dispose = createRoot((dispose) => {
 			LocaleContextProvider({
 				get children() {
-					value = useLocale();
+					localeApi = useLocale();
 					return null;
 				},
 			} as any);
-
-			expect(value?.currentLocale().code).toBe("fr");
-			expect(value?.routePath()).toBe("/guide/install");
-			expect(value?.applyPathPrefix("reference")).toBe("/fr/reference");
-			expect(getLocaleLink(value!.locales[0]!)).toBe("/");
-			expect(getLocaleLink(value!.locales[1]!)).toBe("/fr/");
-
-			void value?.setLocale(value!.locales[0]!);
-			dispose();
+			return dispose;
 		});
 
+		expect(localeApi?.currentVersion()).toMatchObject({ path: "v1.1.16" });
+		expect(localeApi?.currentLocale()).toMatchObject({ code: "es" });
+		expect(localeApi?.routePath()).toBe("/guide");
+
+		localeApi?.setLocale(
+			localeApi.locales.find((locale) => locale.isRoot)! as any,
+		);
 		await Promise.resolve();
-		expect(navigate).toHaveBeenCalledWith("/guide/install");
-		expect(document.documentElement.lang).toBe("en-US");
+
+		expect(navigate).toHaveBeenCalledWith("/v1.1.16/guide");
+		dispose();
 	});
 
-	it("supports custom locale links and root fallback resolution", async () => {
-		setSolidBaseConfig({
-			lang: "en-US",
-			locales: {
-				root: { label: "English", link: "/docs/" },
-				de: { label: "Deutsch", link: "/de/docs/" },
-			},
-		});
+	it("falls back to the root locale when the target version lacks the current locale", async () => {
+		currentPathname = "/v1.1.16/es/guide";
 
-		const { getLocale, getLocaleLink } = await import(
+		const { LocaleContextProvider, useLocale } = await import(
 			"../../src/client/locale.ts"
 		);
 
-		expect(getLocale("/de/docs/setup").code).toBe("de");
-		expect(getLocale("/docs/setup").code).toBe("en-US");
-		expect(getLocaleLink(getLocale("/de/docs/setup"))).toBe("/de/docs/");
+		let localeApi: ReturnType<typeof useLocale> | undefined;
+
+		const dispose = createRoot((dispose) => {
+			LocaleContextProvider({
+				get children() {
+					localeApi = useLocale();
+					return null;
+				},
+			} as any);
+			return dispose;
+		});
+
+		const version = localeApi?.versions.find((entry) => entry.isLatest);
+		expect(version).toBeDefined();
+
+		localeApi?.setVersion(version!);
+		await Promise.resolve();
+
+		expect(navigate).toHaveBeenCalledWith("/guide");
+		dispose();
 	});
 });

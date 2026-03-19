@@ -57,6 +57,70 @@ describe("createSolidBase", () => {
 		);
 	});
 
+	it("passes versions config through to theme and core plugins", async () => {
+		solidBaseMdx.mockReset();
+		solidBaseVitePlugin.mockReset();
+		solidBaseMdx.mockReturnValue("mdx-plugin");
+		solidBaseVitePlugin.mockReturnValue("solidbase-plugin");
+
+		const { createSolidBase } = await import("../../src/config/index.ts");
+		const theme = {
+			componentsPath: "/themes/custom",
+			config: vi.fn(),
+			vite: vi.fn(() => "theme-plugin"),
+		} as any;
+
+		const solidBase = createSolidBase(theme);
+
+		const versions = {
+			current: "latest",
+			all: [
+				{
+					label: "v1.1.16",
+					path: "v1.1.16",
+					dir: "versioned_docs/v1.1.16",
+					themeConfig: { nav: [{ title: "Versioned" }] },
+					locales: {
+						en: { label: "English" },
+					},
+				},
+				{ label: "Legacy", href: "https://legacy.example.com" },
+			],
+			build: ["v1.1.16"],
+		} satisfies {
+			current: string;
+			all: Array<
+				| {
+						label: string;
+						path: string;
+						dir: string;
+						themeConfig: { nav: Array<{ title: string }> };
+						locales: { en: { label: string } };
+				  }
+				| { label: string; href: string }
+			>;
+			build: string[];
+		};
+
+		solidBase.plugin({
+			themeConfig: { nav: [{ title: "Latest" }] },
+			versions,
+		});
+
+		expect(theme.config).toHaveBeenCalledWith(
+			expect.objectContaining({
+				versions,
+			}),
+		);
+		expect(solidBaseMdx).toHaveBeenCalledWith(
+			expect.objectContaining({ versions }),
+		);
+		expect(solidBaseVitePlugin).toHaveBeenCalledWith(
+			theme,
+			expect.objectContaining({ versions }),
+		);
+	});
+
 	it("merges inherited theme config hooks and reverses theme vite order", async () => {
 		solidBaseMdx.mockReset();
 		solidBaseVitePlugin.mockReset();

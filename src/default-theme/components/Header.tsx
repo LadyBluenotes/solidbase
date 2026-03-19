@@ -6,11 +6,7 @@ import IconArrowDownLine from "~icons/ri/arrow-down-s-line";
 import IconCloseFill from "~icons/ri/close-large-fill";
 import IconMenuLeftLine from "~icons/ri/menu-2-line";
 import IconMenuFill from "~icons/ri/menu-fill";
-import {
-	getLocaleLink,
-	useCurrentPageData,
-	useLocale,
-} from "../../client/index.jsx";
+import { useCurrentPageData, useLocale } from "../../client/index.jsx";
 import { useSidebar } from "../../client/sidebar.js";
 import {
 	useDefaultThemeComponents,
@@ -50,10 +46,7 @@ export default function Header() {
 	return (
 		<header class={styles.header}>
 			<div>
-				<a
-					href={getLocaleLink(locale.currentLocale())}
-					class={styles["logo-link"]}
-				>
+				<a href={locale.applyPathPrefix("/")} class={styles["logo-link"]}>
 					<Show when={config().logo} fallback={<span>{config().title}</span>}>
 						<img src={config().logo} alt={config().title} />
 					</Show>

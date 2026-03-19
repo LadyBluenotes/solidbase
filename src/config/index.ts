@@ -18,6 +18,7 @@ export interface SolidBaseConfig<ThemeConfig> {
 	issueAutolink?: IssueAutoLinkConfig | false;
 	lang?: string;
 	locales?: Record<string, LocaleConfig<ThemeConfig>>;
+	versions?: VersionsConfig<ThemeConfig>;
 	themeConfig?: ThemeConfig;
 	editPath?: string | ((path: string) => string);
 	lastUpdated?: Intl.DateTimeFormatOptions | false;
@@ -48,6 +49,25 @@ export type LocaleConfig<ThemeConfig> = {
 	lang?: string;
 	link?: string;
 	themeConfig?: ThemeConfig;
+};
+
+export type VersionsConfig<ThemeConfig> = {
+	current: string;
+	all: Array<VersionedEntry<ThemeConfig> | ExternalVersionEntry>;
+	build?: string[];
+};
+
+export type VersionedEntry<ThemeConfig> = {
+	label: string;
+	path: string;
+	dir: string;
+	themeConfig?: Partial<ThemeConfig>;
+	locales?: Record<string, LocaleConfig<ThemeConfig>>;
+};
+
+export type ExternalVersionEntry = {
+	label: string;
+	href: string;
 };
 
 export type ThemeDefinition<Config> = {

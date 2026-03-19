@@ -4,7 +4,11 @@ export { useSolidBaseContext } from "./context.jsx";
 export {
 	getLocale,
 	getLocaleLink,
+	getRoutePath,
+	getVersion,
+	getVersionLink,
 	type ResolvedLocale,
+	type ResolvedVersion,
 	useLocale,
 } from "./locale.js";
 export {
