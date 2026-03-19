@@ -13,7 +13,10 @@ export interface SolidBaseConfig<ThemeConfig> {
 	title?: string;
 	titleTemplate?: string;
 	description?: string;
+	siteUrl?: string;
 	llms?: boolean;
+	sitemap?: boolean | SitemapConfig;
+	robots?: boolean | RobotsConfig;
 	logo?: string;
 	issueAutolink?: IssueAutoLinkConfig | false;
 	lang?: string;
@@ -34,6 +37,8 @@ type ResolvedConfigKeys =
 	| "title"
 	| "description"
 	| "llms"
+	| "sitemap"
+	| "robots"
 	| "lang"
 	| "issueAutolink"
 	| "lastUpdated";
@@ -70,6 +75,22 @@ export type ExternalVersionEntry = {
 	href: string;
 };
 
+export type SitemapConfig = {
+	hostname?: string;
+	maxUrlsPerSitemap?: number;
+};
+
+export type RobotsRule = {
+	userAgent: string | string[];
+	allow?: string[];
+	disallow?: string[];
+};
+
+export type RobotsConfig = {
+	rules?: RobotsRule[];
+	sitemap?: string | false;
+};
+
 export type ThemeDefinition<Config> = {
 	componentsPath: string;
 	extends?: ThemeDefinition<Config>;
@@ -90,6 +111,8 @@ export function createSolidBase<ThemeConfig>(
 			description:
 				"Fully featured, fully customisable static site generation for SolidStart",
 			llms: false,
+			sitemap: false,
+			robots: false,
 			lang: "en-US",
 			issueAutolink: false,
 			lastUpdated: { dateStyle: "short", timeStyle: "short" },
@@ -138,3 +161,23 @@ export function defineTheme<C>(def: ThemeDefinition<C>) {
 	return def;
 }
 export type Theme<C> = ReturnType<typeof defineTheme<C>>;
+
+export function normalizeSiteUrl(siteUrl: string) {
+	return siteUrl.endsWith("/") ? siteUrl : `${siteUrl}/`;
+}
+
+export function getSiteUrl(config: Pick<SolidBaseConfig<any>, "siteUrl">) {
+	if (!config.siteUrl) return undefined;
+	return normalizeSiteUrl(config.siteUrl);
+}
+
+export function getSitemapHostname(
+	config: Pick<SolidBaseConfig<any>, "siteUrl" | "sitemap">,
+) {
+	if (!config.sitemap) return undefined;
+	if (config.sitemap !== true && config.sitemap.hostname) {
+		return normalizeSiteUrl(config.sitemap.hostname);
+	}
+
+	return getSiteUrl(config);
+}

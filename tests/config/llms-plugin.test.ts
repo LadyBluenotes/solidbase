@@ -1,6 +1,6 @@
 import { readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import solidBaseLlmsPlugin from "../../src/config/vite-plugin/llms.ts";
 import { fixtureSiteRoot } from "../helpers/fixtures.ts";
@@ -46,15 +46,16 @@ describe("solidBaseLlmsPlugin", () => {
 		plugin.configResolved?.({ root: fixtureSiteRoot } as any);
 		await plugin.buildStart?.call({} as any);
 
-		const llmsIndex = await readFile(join(llmsOutputDir, "llms.txt"), "utf8");
-		const rootDoc = await readFile(join(llmsOutputDir, "index.md"), "utf8");
-		const guideDoc = await readFile(
-			join(llmsOutputDir, "guide", "getting-started.md"),
-			"utf8",
-		);
+		const [llmsIndex, homeDoc, guideDoc] = await Promise.all([
+			readFile(join(llmsOutputDir, "llms.txt"), "utf8"),
+			readFile(join(llmsOutputDir, "index.md"), "utf8"),
+			readFile(join(llmsOutputDir, "guide", "getting-started.md"), "utf8"),
+		]);
 
 		expect(llmsIndex).toContain("SolidBase Docs");
-		expect(rootDoc).toContain("# Home");
-		expect(guideDoc).toContain("Getting Started");
+		expect(llmsIndex).toContain("/index.md");
+		expect(llmsIndex).toContain("/guide/getting-started.md");
+		expect(homeDoc).toContain("# Home");
+		expect(guideDoc).toContain("# Getting Started");
 	});
 });
