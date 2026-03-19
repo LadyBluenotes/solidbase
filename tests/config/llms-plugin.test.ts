@@ -46,6 +46,23 @@ describe("solidBaseLlmsPlugin", () => {
 		plugin.configResolved?.({ root: fixtureSiteRoot } as any);
 		await plugin.buildStart?.call({} as any);
 
+		const llmsRoot = join(
+		const llmsOutputDir = join(
+			fixtureSiteRoot,
+			"node_modules",
+			".solidbase",
+			"llms",
+		const llmsIndex = await readFile(join(llmsOutputDir, "llms.txt"), "utf8");
+		const rootDoc = await readFile(join(llmsOutputDir, "index.md"), "utf8");
+		const guideDoc = await readFile(
+			join(llmsOutputDir, "guide", "getting-started.md"),
+			"utf8",
+		);
+		await rm(llmsOutputDir, { recursive: true, force: true });
+
+		plugin.configResolved?.({ root: fixtureSiteRoot } as any);
+		await plugin.buildStart?.call({} as any);
+
 		const [llmsIndex, homeDoc, guideDoc] = await Promise.all([
 			readFile(join(llmsOutputDir, "llms.txt"), "utf8"),
 			readFile(join(llmsOutputDir, "index.md"), "utf8"),
@@ -57,5 +74,9 @@ describe("solidBaseLlmsPlugin", () => {
 		expect(llmsIndex).toContain("/guide/getting-started.md");
 		expect(homeDoc).toContain("# Home");
 		expect(guideDoc).toContain("# Getting Started");
+
+		expect(llmsIndex).toContain("SolidBase Docs");
+		expect(rootDoc).toContain("# Home");
+		expect(guideDoc).toContain("Getting Started");
 	});
 });
