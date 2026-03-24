@@ -1,7 +1,6 @@
 import { solidBaseConfig } from "virtual:solidbase/config";
 import { createContextProvider } from "@solid-primitives/context";
-import { useLocation, useMatch, useNavigate } from "@solidjs/router";
-import { createMemo, startTransition } from "solid-js";
+import { createMemo, createSignal, onCleanup, onMount } from "solid-js";
 import { getRequestEvent, isServer } from "solid-js/web";
 
 import type {
@@ -188,28 +187,48 @@ function applyRoutePrefix<ThemeConfig>(
 }
 
 const [LocaleContextProvider, useLocaleContext] = createContextProvider(() => {
-	const location = useLocation();
-	const navigate = useNavigate();
+	const [pathname, setPathname] = createSignal(getCurrentPath());
 
-	const currentVersion = createMemo(() => getVersion(location.pathname));
+	onMount(() => {
+		setPathname(getCurrentPath());
+
+		const updatePath = () => setPathname(getCurrentPath());
+		const historyState = window.history;
+		const originalPushState = historyState.pushState.bind(historyState);
+		const originalReplaceState = historyState.replaceState.bind(historyState);
+
+		historyState.pushState = (...args) => {
+			originalPushState(...args);
+			updatePath();
+		};
+
+		historyState.replaceState = (...args) => {
+			originalReplaceState(...args);
+			updatePath();
+		};
+
+		window.addEventListener("popstate", updatePath);
+
+		onCleanup(() => {
+			historyState.pushState = originalPushState;
+			historyState.replaceState = originalReplaceState;
+			window.removeEventListener("popstate", updatePath);
+		});
+	});
+
+	const currentVersion = createMemo(() => getVersion(pathname()));
 	const currentLocales = createMemo(() =>
 		getLocalesForVersion(currentVersion()),
 	);
 	const currentLocale = createMemo(() =>
 		getLocaleForPath(
-			stripPrefix(location.pathname, getVersionLink(currentVersion())),
+			stripPrefix(pathname(), getVersionLink(currentVersion())),
 			currentVersion(),
 		),
 	);
 
-	const match = useMatch(
-		() => `${getPathPrefix(currentLocale(), currentVersion())}*rest`,
-	);
-
 	const routePath = () => {
-		const rest = match()?.params.rest;
-		if (!rest) return "/" as const;
-		return normalizePath(rest);
+		return getRoutePath(pathname());
 	};
 
 	return {
@@ -220,9 +239,7 @@ const [LocaleContextProvider, useLocaleContext] = createContextProvider(() => {
 		currentLocale,
 		currentVersion,
 		setLocale: (locale: ResolvedLocale<any>) => {
-			startTransition(() =>
-				navigate(applyRoutePrefix(routePath(), locale, currentVersion())),
-			);
+			navigateTo(applyRoutePrefix(routePath(), locale, currentVersion()));
 			document.documentElement.lang = locale.code;
 		},
 		setVersion: (version: VersionOption<any>) => {
@@ -230,9 +247,7 @@ const [LocaleContextProvider, useLocaleContext] = createContextProvider(() => {
 				getLocaleForVersionCode(version, currentLocale().code) ??
 				getRootLocale(getLocalesForVersion(version));
 
-			startTransition(() =>
-				navigate(applyRoutePrefix(routePath(), nextLocale, version)),
-			);
+			navigateTo(applyRoutePrefix(routePath(), nextLocale, version));
 			document.documentElement.lang = nextLocale.code;
 		},
 		applyPathPrefix: (path: string): `/${string}` =>
@@ -302,4 +317,24 @@ export function getLocale(_path?: string) {
 
 export function getRoutePath(path: string) {
 	return getRouteParts(path).routePath;
+}
+
+function getCurrentPath() {
+	if (isServer) {
+		if (typeof globalThis.location !== "undefined") {
+			return globalThis.location.pathname;
+		}
+
+		const e = getRequestEvent();
+		if (!e) throw new Error("Path lookup must be called in a request context");
+		return new URL(e.request.url).pathname;
+	}
+
+	return window.location.pathname;
+}
+
+function navigateTo(path: string) {
+	if (typeof globalThis.location === "undefined") return;
+	window.history.pushState({}, "", path);
+	window.dispatchEvent(new PopStateEvent("popstate"));
 }

@@ -3,6 +3,7 @@ import { relative, resolve, sep } from "node:path";
 
 import type {
 	ExternalVersionEntry,
+	LocaleConfig,
 	SolidBaseResolvedConfig,
 	VersionedEntry,
 } from "../index.js";
@@ -38,7 +39,8 @@ export function patchVersionedRouters(
 	isBuild: boolean,
 ) {
 	const versions = getIncludedVersionEntries(solidBaseConfig, root, isBuild);
-	if (versions.length === 0) return;
+	const locales = getNonRootLocales(solidBaseConfig.locales);
+	if (versions.length === 0 && locales.length === 0) return;
 
 	const routers = (globalThis as { ROUTERS?: Record<string, RouterLike> })
 		.ROUTERS;
@@ -47,15 +49,19 @@ export function patchVersionedRouters(
 	for (const name of ROUTER_NAMES) {
 		const router = routers[name];
 		if (!router || router.__solidbaseVersionedRoutesPatched__) continue;
-		patchVersionedRouter(router, versions);
+		patchVersionedRouter(router, versions, locales);
 	}
 }
 
 export function patchVersionedRouter(
 	router: RouterLike,
 	versions: InternalVersionEntry<any>[],
+	locales: Array<[string, LocaleConfig<any>]> = [],
 ) {
-	if (versions.length === 0 || router.__solidbaseVersionedRoutesPatched__)
+	if (
+		(versions.length === 0 && locales.length === 0) ||
+		router.__solidbaseVersionedRoutesPatched__
+	)
 		return;
 
 	router.__solidbaseVersionedRoutesPatched__ = true;
@@ -71,9 +77,31 @@ export function patchVersionedRouter(
 			originalGetRoutes(),
 			getVersionedRoutes(router, versions, originalToRoute),
 		]);
+		const localizedBaseRoutes = getLocalizedRoutes(
+			baseRoutes,
+			locales,
+			new Set(baseRoutes.map((route) => route.path)),
+		);
+		const localizedVersionedRoutes = getLocalizedVersionedRoutes(
+			versionedRoutes,
+			versions,
+			locales,
+			new Set(
+				[...baseRoutes, ...localizedBaseRoutes, ...versionedRoutes].map(
+					(route) => route.path,
+				),
+			),
+		);
 
-		assertNoRouteCollisions([...baseRoutes, ...versionedRoutes]);
-		return [...baseRoutes, ...versionedRoutes];
+		const routes = [
+			...baseRoutes,
+			...localizedBaseRoutes,
+			...versionedRoutes,
+			...localizedVersionedRoutes,
+		];
+
+		assertNoRouteCollisions(routes);
+		return routes;
 	};
 
 	router.addRoute = (path) => {
@@ -102,6 +130,57 @@ export function patchVersionedRouter(
 
 		originalRemoveRoute(path);
 	};
+}
+
+function getLocalizedRoutes(
+	routes: Route[],
+	locales: Array<[string, LocaleConfig<any>]>,
+	existingPaths: Set<string>,
+) {
+	return routes.flatMap((route) =>
+		locales
+			.map((locale) =>
+				prefixRouteWithLocale(
+					route,
+					getLocalePrefix(locale[0], locale[1]),
+					undefined,
+					existingPaths,
+				),
+			)
+			.filter((localizedRoute): localizedRoute is Route => !!localizedRoute),
+	);
+}
+
+function getLocalizedVersionedRoutes(
+	routes: Route[],
+	versions: InternalVersionEntry<any>[],
+	rootLocales: Array<[string, LocaleConfig<any>]>,
+	existingPaths: Set<string>,
+) {
+	return routes.flatMap((route) => {
+		const version = versions.find(
+			(entry) =>
+				route.path === `/${entry.path}` ||
+				route.path.startsWith(`/${entry.path}/`),
+		);
+		if (!version) return [];
+
+		const mergedLocales = getNonRootLocales({
+			...Object.fromEntries(rootLocales),
+			...(version.locales ?? {}),
+		});
+
+		return mergedLocales
+			.map((locale) =>
+				prefixRouteWithLocale(
+					route,
+					getLocalePrefix(locale[0], locale[1]),
+					version.path,
+					existingPaths,
+				),
+			)
+			.filter((localizedRoute): localizedRoute is Route => !!localizedRoute);
+	});
 }
 
 export function getIncludedVersionEntries(
@@ -139,6 +218,55 @@ function isVersionedEntry(
 
 function normalizeSegment(value: string) {
 	return value.replace(/^\/+|\/+$/g, "");
+}
+
+function getLocalePrefix(code: string, config: LocaleConfig<any>) {
+	return normalizeSegment(config.link ?? `/${code}`);
+}
+
+function getNonRootLocales(locales?: Record<string, LocaleConfig<any>>) {
+	return Object.entries(locales ?? {}).filter(([code]) => code !== "root");
+}
+
+function prefixRouteWithLocale(
+	route: Route,
+	localePrefix: string,
+	versionPath?: string,
+	existingPaths?: Set<string>,
+) {
+	const basePath = versionPath
+		? stripVersionPrefix(route.path, versionPath)
+		: route.path;
+	const normalizedLocalePrefix = `/${normalizeSegment(localePrefix)}`;
+	if (
+		basePath === normalizedLocalePrefix ||
+		basePath.startsWith(`${normalizedLocalePrefix}/`)
+	) {
+		return undefined;
+	}
+
+	const localizedPath =
+		basePath === "/"
+			? normalizedLocalePrefix
+			: `${normalizedLocalePrefix}${basePath}`;
+	const finalPath = versionPath
+		? prefixVersionedRoutePath(versionPath, localizedPath)
+		: localizedPath;
+	if (existingPaths?.has(finalPath)) return undefined;
+	existingPaths?.add(finalPath);
+
+	return {
+		...route,
+		path: finalPath,
+	};
+}
+
+function stripVersionPrefix(routePath: string, versionPath: string) {
+	const versionPrefix = `/${normalizeSegment(versionPath)}`;
+	if (routePath === versionPrefix) return "/";
+	if (routePath.startsWith(`${versionPrefix}/`))
+		return routePath.slice(versionPrefix.length) || "/";
+	return routePath;
 }
 
 function isVersionedRouteFile(

@@ -1,3 +1,36 @@
 body {
 	margin: 0;
 }
+
+.dev-versioning-panel {
+	margin: 1rem;
+	padding: 1rem;
+	border: 1px solid #d0d7de;
+	border-radius: 0.75rem;
+	background: #f6f8fa;
+	color: #0f172a;
+	font:
+		500 14px / 1.5 system-ui,
+		sans-serif;
+}
+
+.dev-versioning-panel p {
+	margin: 0 0 0.75rem;
+}
+
+.dev-versioning-panel strong {
+	margin-right: 0.5rem;
+}
+
+.dev-versioning-panel label {
+	display: inline-flex;
+	gap: 0.5rem;
+	align-items: center;
+}
+
+.dev-versioning-panel select {
+	padding: 0.35rem 0.5rem;
+	border: 1px solid #94a3b8;
+	border-radius: 0.5rem;
+	background: #fff;
+}

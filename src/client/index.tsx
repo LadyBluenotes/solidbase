@@ -10,6 +10,7 @@ export {
 	type ResolvedLocale,
 	type ResolvedVersion,
 	useLocale,
+	type VersionOption,
 } from "./locale.js";
 export {
 	type BaseFrontmatter,

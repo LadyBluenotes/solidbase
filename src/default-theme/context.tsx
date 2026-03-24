@@ -11,6 +11,7 @@ import Link from "./components/Link.jsx";
 import LocaleSelector from "./components/LocaleSelector.jsx";
 import TableOfContents from "./components/TableOfContents.jsx";
 import ThemeSelector from "./components/ThemeSelector.jsx";
+import VersionSelector from "./components/VersionSelector.jsx";
 
 import { useDefaultThemeFrontmatter } from "./frontmatter.js";
 
@@ -23,6 +24,7 @@ const defaultComponents = {
 	LocaleSelector,
 	TableOfContents,
 	ThemeSelector,
+	VersionSelector,
 	Hero,
 	Features,
 };

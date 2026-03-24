@@ -20,6 +20,57 @@ export default defineConfig({
 			description: "Development playground for the latest SolidBase features",
 			llms: true,
 			lang: "en",
+			locales: {
+				root: {
+					label: "English",
+				},
+				fr: {
+					label: "Francais",
+				},
+			},
+			versions: {
+				current: "latest",
+				all: [
+					{
+						label: "v1.1.16",
+						path: "v1.1.16",
+						dir: "versioned_docs/v1.1.16",
+						themeConfig: {
+							nav: [
+								{
+									text: "v1.1.16",
+									link: "/about",
+								},
+							],
+							sidebar: {
+								"/": [
+									{
+										title: "Versioned",
+										items: [
+											{
+												title: "Versioned Home",
+												link: "/",
+											},
+											{
+												title: "Versioned About",
+												link: "/about",
+											},
+										],
+									},
+								],
+							},
+						},
+						locales: {
+							root: {
+								label: "English",
+							},
+							es: {
+								label: "Espanol",
+							},
+						},
+					},
+				],
+			},
 			themeConfig: {
 				sidebar: {
 					"/": createFilesystemSidebar("./src/routes", {

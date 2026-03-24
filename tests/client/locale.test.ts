@@ -1,35 +1,7 @@
 // @vitest-environment jsdom
 
 import { createRoot } from "solid-js";
-import { afterEach, describe, expect, it, vi } from "vitest";
-
-let currentPathname = "/";
-
-const navigate = vi.fn();
-const useLocation = vi.fn(() => ({
-	get pathname() {
-		return currentPathname;
-	},
-}));
-const useNavigate = vi.fn(() => navigate);
-const useMatch = vi.fn((pattern: () => string) => () => {
-	const matcher = pattern();
-	const prefix = matcher.replace("*rest", "");
-
-	if (prefix === "/") {
-		return { params: { rest: currentPathname.slice(1) } };
-	}
-
-	if (currentPathname === prefix.slice(0, -1)) {
-		return { params: { rest: "" } };
-	}
-
-	if (currentPathname.startsWith(prefix)) {
-		return { params: { rest: currentPathname.slice(prefix.length) } };
-	}
-
-	return undefined;
-});
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("virtual:solidbase/config", () => ({
 	solidBaseConfig: {
@@ -55,19 +27,13 @@ vi.mock("virtual:solidbase/config", () => ({
 	},
 }));
 
-vi.mock("@solidjs/router", () => ({
-	useLocation,
-	useNavigate,
-	useMatch,
-}));
-
 describe("locale helpers", () => {
+	beforeEach(() => {
+		window.history.replaceState({}, "", "/");
+	});
+
 	afterEach(() => {
-		currentPathname = "/";
-		navigate.mockReset();
-		useLocation.mockClear();
-		useNavigate.mockClear();
-		useMatch.mockClear();
+		window.history.replaceState({}, "", "/");
 		vi.resetModules();
 	});
 
@@ -100,7 +66,7 @@ describe("locale helpers", () => {
 	});
 
 	it("preserves the current version when switching locales", async () => {
-		currentPathname = "/v1.1.16/es/guide";
+		window.history.replaceState({}, "", "/v1.1.16/es/guide");
 
 		const { LocaleContextProvider, useLocale } = await import(
 			"../../src/client/locale.ts"
@@ -127,12 +93,14 @@ describe("locale helpers", () => {
 		);
 		await Promise.resolve();
 
-		expect(navigate).toHaveBeenCalledWith("/v1.1.16/guide");
+		expect(localeApi?.currentVersion()).toMatchObject({ path: "v1.1.16" });
+		expect(localeApi?.currentLocale()).toMatchObject({ isRoot: true });
+		expect(window.location.pathname).toBe("/v1.1.16/guide");
 		dispose();
 	});
 
 	it("falls back to the root locale when the target version lacks the current locale", async () => {
-		currentPathname = "/v1.1.16/es/guide";
+		window.history.replaceState({}, "", "/v1.1.16/es/guide");
 
 		const { LocaleContextProvider, useLocale } = await import(
 			"../../src/client/locale.ts"
@@ -156,7 +124,9 @@ describe("locale helpers", () => {
 		localeApi?.setVersion(version!);
 		await Promise.resolve();
 
-		expect(navigate).toHaveBeenCalledWith("/guide");
+		expect(localeApi?.currentVersion()).toMatchObject({ isLatest: true });
+		expect(localeApi?.currentLocale()).toMatchObject({ isRoot: true });
+		expect(window.location.pathname).toBe("/guide");
 		dispose();
 	});
 });

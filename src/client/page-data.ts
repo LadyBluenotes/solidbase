@@ -30,7 +30,13 @@ interface CurrentPageData {
 
 const [CurrentPageDataProvider, useCurrentPageDataContext] =
 	createContextProvider((props: { deferStream?: boolean }) => {
-		const matches = useCurrentMatches();
+		const matches = (() => {
+			try {
+				return useCurrentMatches();
+			} catch {
+				return () => [];
+			}
+		})();
 
 		const [pageData] = createResource(
 			matches,
