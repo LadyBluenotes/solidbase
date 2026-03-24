@@ -77,12 +77,19 @@
 	align-items: center;
 	gap: 0.35rem;
 	vertical-align: text-bottom;
+	padding-left: 0.15rem;
+	border-left: 1px solid
+		color-mix(in hsl, var(--sb-text-color) 12%, transparent);
 
 	& a {
-		padding: 0.35rem 0.5rem;
+		display: inline-flex;
+		align-items: center;
+		padding: 0.5rem;
 		border-radius: var(--sb-border-radius);
 		color: var(--sb-text-color);
 		text-decoration: none;
+		font: inherit;
+		opacity: 0.9;
 		transition-property: background-color, opacity, color;
 		transition-timing-function: var(--sb-transition-timing);
 		transition-duration: 0.15s;
@@ -90,6 +97,7 @@
 		&:hover,
 		&:focus {
 			background: color-mix(in hsl, var(--sb-text-color) 7.5%, transparent);
+			opacity: 1;
 		}
 	}
 }
