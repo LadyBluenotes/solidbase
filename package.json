@@ -3,6 +3,9 @@
   "version": "0.0.0-dev",
   "description": "Fully featured, fully customisable static site generation for SolidStart",
   "type": "module",
+  "bin": {
+    "solidbase": "./dist/cli.js"
+  },
   "sideEffects": true,
   "scripts": {
     "dev": "pnpm -F @kobalte/solidbase-dev dev",
