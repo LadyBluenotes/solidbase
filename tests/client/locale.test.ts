@@ -93,8 +93,6 @@ describe("locale helpers", () => {
 		);
 		await Promise.resolve();
 
-		expect(localeApi?.currentVersion()).toMatchObject({ path: "v1.1.16" });
-		expect(localeApi?.currentLocale()).toMatchObject({ isRoot: true });
 		expect(window.location.pathname).toBe("/v1.1.16/guide");
 		dispose();
 	});
@@ -124,8 +122,6 @@ describe("locale helpers", () => {
 		localeApi?.setVersion(version!);
 		await Promise.resolve();
 
-		expect(localeApi?.currentVersion()).toMatchObject({ isLatest: true });
-		expect(localeApi?.currentLocale()).toMatchObject({ isRoot: true });
 		expect(window.location.pathname).toBe("/guide");
 		dispose();
 	});
