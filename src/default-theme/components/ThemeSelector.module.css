@@ -1,3 +1,9 @@
+.root {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.5rem;
+}
+
 .item {
 	padding: 0.3rem 0.5rem;
 	list-style-type: none;
@@ -67,8 +73,25 @@
 }
 
 .icon {
-	display: inline-block;
+	display: inline-flex;
+	align-items: center;
+	gap: 0.35rem;
 	vertical-align: text-bottom;
+
+	& a {
+		padding: 0.35rem 0.5rem;
+		border-radius: var(--sb-border-radius);
+		color: var(--sb-text-color);
+		text-decoration: none;
+		transition-property: background-color, opacity, color;
+		transition-timing-function: var(--sb-transition-timing);
+		transition-duration: 0.15s;
+
+		&:hover,
+		&:focus {
+			background: color-mix(in hsl, var(--sb-text-color) 7.5%, transparent);
+		}
+	}
 }
 
 .system-light,

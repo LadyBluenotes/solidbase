@@ -2,11 +2,13 @@ export { mdxComponents } from "virtual:solidbase/components";
 export { useRouteSolidBaseConfig } from "./config.js";
 export { useSolidBaseContext } from "./context.jsx";
 export {
+	type ExternalVersionOption,
 	getLocale,
 	getLocaleLink,
 	getRoutePath,
 	getVersion,
 	getVersionLink,
+	type InternalVersionOption,
 	type ResolvedLocale,
 	type ResolvedVersion,
 	useLocale,

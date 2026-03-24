@@ -24,6 +24,12 @@ export interface LatestVersionEntry {
 	isLatest: true;
 }
 
+export interface ExternalVersionOption {
+	label: string;
+	href: string;
+	isExternal: true;
+}
+
 export interface ResolvedVersion<ThemeConfig> {
 	label: string;
 	path: string;
@@ -33,9 +39,13 @@ export interface ResolvedVersion<ThemeConfig> {
 	isLatest?: false;
 }
 
-export type VersionOption<ThemeConfig> =
+export type InternalVersionOption<ThemeConfig> =
 	| LatestVersionEntry
 	| ResolvedVersion<ThemeConfig>;
+
+export type VersionOption<ThemeConfig> =
+	| InternalVersionOption<ThemeConfig>
+	| ExternalVersionOption;
 
 const latestVersion: LatestVersionEntry = {
 	label: solidBaseConfig.versions?.current ?? DEFAULT_VERSION_LABEL,
@@ -46,12 +56,27 @@ const versionEntries = (solidBaseConfig.versions?.all ?? []).filter(
 	isVersionedEntry,
 );
 
+const externalVersionEntries = (solidBaseConfig.versions?.all ?? []).filter(
+	isExternalVersionEntry,
+);
+
 const versions = [latestVersion, ...versionEntries];
+
+const externalVersions = externalVersionEntries.map((entry) => ({
+	...entry,
+	isExternal: true as const,
+}));
 
 function isVersionedEntry<ThemeConfig>(
 	entry: VersionedEntry<ThemeConfig> | ExternalVersionEntry,
 ): entry is ResolvedVersion<ThemeConfig> {
 	return "path" in entry && "dir" in entry;
+}
+
+function isExternalVersionEntry<ThemeConfig>(
+	entry: VersionedEntry<ThemeConfig> | ExternalVersionEntry,
+): entry is ExternalVersionOption {
+	return "href" in entry;
 }
 
 function normalizePath(path: string): `/${string}` {
@@ -106,10 +131,10 @@ function getRootLocale<ThemeConfig>(
 }
 
 function getLocalesForVersion<ThemeConfig>(
-	version: VersionOption<ThemeConfig> = latestVersion,
+	version: InternalVersionOption<ThemeConfig> = latestVersion,
 ) {
 	const versionLocales = version.isLatest ? undefined : version.locales;
-	const localeConfig = {
+	const localeConfig: Record<string, LocaleConfig<ThemeConfig>> = {
 		...(solidBaseConfig.locales ?? {}),
 		...(versionLocales ?? {}),
 	};
@@ -143,7 +168,7 @@ function getLocalesForVersion<ThemeConfig>(
 
 function getLocaleForPath<ThemeConfig>(
 	path: string,
-	version: VersionOption<ThemeConfig> = latestVersion,
+	version: InternalVersionOption<ThemeConfig> = latestVersion,
 ) {
 	const locales = getLocalesForVersion(version);
 
@@ -156,7 +181,7 @@ function getLocaleForPath<ThemeConfig>(
 }
 
 function getRouteParts<ThemeConfig>(path: string) {
-	const version = getVersion(path) as VersionOption<ThemeConfig>;
+	const version = getVersion(path) as InternalVersionOption<ThemeConfig>;
 	const pathWithoutVersion = stripPrefix(path, getVersionLink(version));
 	const locale = getLocaleForPath<ThemeConfig>(pathWithoutVersion, version);
 	const routePath = stripPrefix(pathWithoutVersion, getLocaleLink(locale));
@@ -165,7 +190,7 @@ function getRouteParts<ThemeConfig>(path: string) {
 }
 
 function getLocaleForVersionCode<ThemeConfig>(
-	version: VersionOption<ThemeConfig>,
+	version: InternalVersionOption<ThemeConfig>,
 	code: string,
 ) {
 	return getLocalesForVersion(version).find((locale) => locale.code === code);
@@ -173,7 +198,7 @@ function getLocaleForVersionCode<ThemeConfig>(
 
 function getPathPrefix<ThemeConfig>(
 	locale: ResolvedLocale<ThemeConfig>,
-	version: VersionOption<ThemeConfig> = latestVersion,
+	version: InternalVersionOption<ThemeConfig> = latestVersion,
 ) {
 	return joinPath(getVersionLink(version), getLocaleLink(locale));
 }
@@ -181,7 +206,7 @@ function getPathPrefix<ThemeConfig>(
 function applyRoutePrefix<ThemeConfig>(
 	path: string,
 	locale: ResolvedLocale<ThemeConfig>,
-	version: VersionOption<ThemeConfig> = latestVersion,
+	version: InternalVersionOption<ThemeConfig> = latestVersion,
 ) {
 	return joinPath(getPathPrefix(locale, version), path);
 }
@@ -236,13 +261,14 @@ const [LocaleContextProvider, useLocaleContext] = createContextProvider(() => {
 			return currentLocales();
 		},
 		versions,
+		externalVersions,
 		currentLocale,
 		currentVersion,
 		setLocale: (locale: ResolvedLocale<any>) => {
 			navigateTo(applyRoutePrefix(routePath(), locale, currentVersion()));
 			document.documentElement.lang = locale.code;
 		},
-		setVersion: (version: VersionOption<any>) => {
+		setVersion: (version: InternalVersionOption<any>) => {
 			const nextLocale =
 				getLocaleForVersionCode(version, currentLocale().code) ??
 				getRootLocale(getLocalesForVersion(version));
@@ -276,7 +302,9 @@ export const getLocaleLink = (locale: ResolvedLocale<any>): `/${string}` =>
 		locale.config.link ?? `/${locale.isRoot ? "" : `${locale.code}`}`,
 	);
 
-export const getVersionLink = (version: VersionOption<any>): `/${string}` =>
+export const getVersionLink = (
+	version: InternalVersionOption<any>,
+): `/${string}` =>
 	version.isLatest ? "/" : normalizePrefix(`/${version.path}`);
 
 export function getVersion(_path?: string) {

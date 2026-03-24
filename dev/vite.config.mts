@@ -29,19 +29,13 @@ export default defineConfig({
 				},
 			},
 			versions: {
-				current: "latest",
+				current: "Latest",
 				all: [
 					{
 						label: "v1.1.16",
 						path: "v1.1.16",
 						dir: "versioned_docs/v1.1.16",
 						themeConfig: {
-							nav: [
-								{
-									text: "v1.1.16",
-									link: "/about",
-								},
-							],
 							sidebar: {
 								"/": [
 									{
