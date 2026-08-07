@@ -5,12 +5,15 @@ import { createMemo } from "solid-js";
 
 import {
 	buildSolidBaseRoutePath,
+	getSolidBaseRouteFallbackOptions,
 	getSolidBaseRouteOptions,
 	getSolidBaseRouteSelectionForPath,
 	normalizeSolidBaseRouteSelection,
+	resolveSolidBaseRouteValueOverrides,
 	type SolidBaseRouteOption,
 	type SolidBaseRouteSelection,
 } from "../config/route-config.js";
+import { useRouteSolidBaseConfig } from "./config.js";
 
 const [SolidBaseRoutesContextProvider, useSolidBaseRoutesContext] =
 	createContextProvider(() => {
@@ -23,6 +26,13 @@ const [SolidBaseRoutesContextProvider, useSolidBaseRoutesContext] =
 				) ??
 				normalizeSolidBaseRouteSelection(solidBaseConfig.routes) ??
 				{},
+		);
+		const routeOverride = createMemo(() =>
+			resolveSolidBaseRouteValueOverrides(
+				solidBaseConfig.routes,
+				solidBaseConfig.overrides ?? [],
+				current(),
+			),
 		);
 
 		return {
@@ -38,7 +48,9 @@ const [SolidBaseRoutesContextProvider, useSolidBaseRoutesContext] =
 					solidBaseConfig.routes,
 					axis,
 					selection ?? current(),
+					routeOverride(),
 				),
+			routeOverride,
 		};
 	});
 
@@ -63,4 +75,18 @@ export function useSolidBaseRouteOptions(axis: string) {
 	const routes = useSolidBaseRoutes();
 
 	return createMemo<SolidBaseRouteOption[]>(() => routes.options(axis));
+}
+
+export function useSolidBaseRouteFallbackOptions(axis: string) {
+	const config = useRouteSolidBaseConfig();
+	const current = useSolidBaseRoute();
+
+	return createMemo(() =>
+		getSolidBaseRouteFallbackOptions(
+			config().routes,
+			axis,
+			current(),
+			config().routeOverride,
+		),
+	);
 }

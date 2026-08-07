@@ -112,6 +112,12 @@ export default defineConfig({
 				},
 				{
 					version: "v1",
+					route: {
+						version: {
+							v1: { label: "v1 (legacy)" },
+						},
+					},
+
 					title: "SolidBase v1 Demo",
 					themeConfig: {
 						sidebar: {
