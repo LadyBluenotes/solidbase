@@ -28,6 +28,7 @@ export { SolidBaseRoot } from "./Root.jsx";
 export {
 	SolidBaseRoutesContextProvider,
 	useSolidBaseRoute,
+	useSolidBaseRouteFallbackOptions,
 	useSolidBaseRouteOptions,
 	useSolidBaseRoutes,
 } from "./routes.js";
