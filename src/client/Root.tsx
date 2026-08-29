@@ -69,18 +69,16 @@ export function Inner(props: ParentProps) {
 	const config = useRouteSolidBaseConfig();
 	const location = useLocation();
 	const pageData = useCurrentPageData();
-	const metadata = createMemo(() =>
-		resolveDocumentMetadata(config(), pageData()?.frontmatter),
-	);
 	// @solidjs/meta cannot retract tags from an incomplete SSR pass.
-	const headMetadata = createMemo(() =>
+	const metadata = createMemo(() =>
 		resolveHeadMetadata(config(), pageData(), location),
 	);
-	const metaTitle = () => metadata().title;
+	const metaTitle = () =>
+		metadata()?.title ?? resolveDocumentMetadata(config()).title;
 
 	return (
 		<SolidBaseContext.Provider value={{ config, metaTitle }}>
-			<Show when={headMetadata()} keyed>
+			<Show when={metadata()} keyed>
 				{(head) => (
 					<>
 						<Title>{head.title}</Title>

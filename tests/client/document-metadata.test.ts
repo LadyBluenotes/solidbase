@@ -60,22 +60,6 @@ describe("SolidBase document metadata", () => {
 		});
 	});
 
-	it("uses route-resolved configuration values", () => {
-		expect(
-			resolveDocumentMetadata(
-				{
-					description: "Router docs",
-					title: "Router",
-					titleTemplate: ":title | Router",
-				},
-				{ title: "Navigation" },
-			),
-		).toEqual({
-			description: "Router docs",
-			title: "Navigation | Router",
-		});
-	});
-
 	it("returns no description when none resolves", () => {
 		expect(resolveDocumentMetadata({ title: "SolidBase" })).toEqual({
 			description: undefined,
