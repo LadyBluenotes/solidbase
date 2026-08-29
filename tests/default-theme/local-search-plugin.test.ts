@@ -1,40 +1,38 @@
-import MiniSearch from "minisearch";
+import { access, readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { LOCAL_SEARCH_INDEX_OPTIONS } from "../../src/default-theme/search.ts";
-import localSearchPlugin, {
-	LOCAL_SEARCH_MODULE_ID,
-} from "../../src/default-theme/vite-local-search.ts";
+import localSearchPlugin from "../../src/default-theme/vite-local-search.ts";
 import { fixtureSiteRoot } from "../helpers/fixtures.ts";
 
 describe("localSearchPlugin", () => {
-	it("returns an empty loader map when local search is disabled", async () => {
-		const plugin = localSearchPlugin({ themeConfig: {} } as any) as any;
-		const resolvedId = plugin.resolveId(LOCAL_SEARCH_MODULE_ID);
-
-		expect(await plugin.load(resolvedId)).toBe("export default {};");
+	it("returns no plugin when local search is disabled", () => {
+		expect(localSearchPlugin({ themeConfig: {} } as any)).toEqual([]);
 	});
 
-	it("exposes serialized indexes by route scope", async () => {
+	it("writes a Pagefind search bundle", async () => {
 		const plugin = localSearchPlugin({
 			themeConfig: { search: { local: true } },
 			markdown: {},
+			lang: "en-US",
 		} as any) as any;
 		plugin.configResolved({ root: fixtureSiteRoot });
-		const context = {
+		await plugin.buildStart.call({
 			addWatchFile() {},
 			resolve: async () => null,
-		};
-		const rootId = plugin.resolveId(LOCAL_SEARCH_MODULE_ID);
-		const rootModule = await plugin.load.call(context, rootId);
+		});
 
-		const indexes = JSON.parse(
-			rootModule.match(/^export default (.*);$/s)?.[1] ?? "",
-		) as Record<string, string>;
-		const index = MiniSearch.loadJSON(
-			indexes.root!,
-			LOCAL_SEARCH_INDEX_OPTIONS,
+		const bundleDir = join(
+			fixtureSiteRoot,
+			"node_modules",
+			".solidbase",
+			"local-search",
+			"pagefind",
 		);
-
-		expect(index.search("SolidBase")).not.toHaveLength(0);
+		await expect(
+			access(join(bundleDir, "pagefind.js")),
+		).resolves.toBeUndefined();
+		expect(
+			await readFile(join(bundleDir, "pagefind-entry.json"), "utf8"),
+		).toContain('"languages"');
 	});
 });

@@ -1,24 +1,11 @@
-import type { Options, SearchOptions } from "minisearch";
 import type { SolidBaseConfig } from "../config/index.js";
 import { getSolidBaseRouteMatchForPath } from "../config/route-config.js";
 
-export type LocalSearchDocument = {
-	id: string;
+export type LocalSearchSection = {
+	url: string;
 	title: string;
 	titles: string[];
-	text: string;
-	excerpt: string;
-};
-
-export const LOCAL_SEARCH_INDEX_OPTIONS: Options<LocalSearchDocument> = {
-	fields: ["title", "titles", "text"],
-	storeFields: ["title", "titles", "excerpt"],
-};
-
-export const LOCAL_SEARCH_QUERY_OPTIONS: SearchOptions = {
-	prefix: true,
-	fuzzy: 0.2,
-	boost: { title: 4, text: 2, titles: 1 },
+	content: string;
 };
 
 function normalizePrefix(prefix: string) {

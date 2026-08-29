@@ -1,7 +1,7 @@
 import type { Root, RootContent } from "mdast";
 import { toString as nodeToString } from "mdast-util-to-string";
 import { toc } from "mdast-util-toc";
-import MiniSearch from "minisearch";
+import type { CustomRecord } from "pagefind";
 import remarkMdx from "remark-mdx";
 import remarkParse from "remark-parse";
 import { unified } from "unified";
@@ -10,13 +10,13 @@ import { toDocumentMarkdown } from "../config/document-markdown.js";
 import type { SolidBaseResolvedConfig } from "../config/index.js";
 import { viteAliasCodeImports } from "../config/remark-plugins/import-code-file.js";
 import {
+	getRouteLocaleMetadata,
 	getRoutesIndex,
 	isRouteIncludedByConfig,
 } from "../config/routes-index.js";
 import {
 	getLocalSearchScopeForPath,
-	LOCAL_SEARCH_INDEX_OPTIONS,
-	type LocalSearchDocument,
+	type LocalSearchSection,
 } from "./search.js";
 
 type SearchFrontmatter = {
@@ -59,10 +59,10 @@ function getSearchableText(nodes: RootContent[]) {
 export function splitSearchSections(
 	markdown: string,
 	page: SearchPage,
-): LocalSearchDocument[] {
+): LocalSearchSection[] {
 	const tree = unified().use(remarkParse).use(remarkMdx).parse(markdown);
 	const anchors = getHeadingAnchors(tree);
-	const documents: LocalSearchDocument[] = [];
+	const documents: LocalSearchSection[] = [];
 	const titles: string[] = [];
 	let headingIndex = 0;
 	let sectionTitle = page.title;
@@ -76,11 +76,10 @@ export function splitSearchSections(
 		const text = [description, body].filter(Boolean).join(" ");
 		description = undefined;
 		documents.push({
-			id: sectionId,
+			url: sectionId,
 			title: sectionTitle,
 			titles: sectionTitles,
-			text,
-			excerpt: text.slice(0, 200),
+			content: text,
 		});
 	};
 
@@ -104,7 +103,7 @@ export function splitSearchSections(
 	return documents;
 }
 
-export async function buildLocalSearchIndexes(
+export async function buildLocalSearchRecords(
 	root: string,
 	config: SolidBaseResolvedConfig<any>,
 	resolver: (
@@ -113,7 +112,7 @@ export async function buildLocalSearchIndexes(
 	) => Promise<{ id: string } | null>,
 	onFile?: (filePath: string) => void,
 ) {
-	const indexes = new Map<string, MiniSearch<LocalSearchDocument>>();
+	const records: CustomRecord[] = [];
 	const routes = await getRoutesIndex(root);
 	const aliasTransformer = viteAliasCodeImports(
 		resolver,
@@ -126,11 +125,9 @@ export async function buildLocalSearchIndexes(
 		if (!isRouteIncludedByConfig(route.routePath, config)) continue;
 
 		const scope = getLocalSearchScopeForPath(route.routePath, config);
-		let index = indexes.get(scope);
-		if (!index) {
-			index = new MiniSearch(LOCAL_SEARCH_INDEX_OPTIONS);
-			indexes.set(scope, index);
-		}
+		const language = new Intl.Locale(
+			getRouteLocaleMetadata(route.routePath, config).hreflang,
+		).language;
 
 		const source =
 			(await aliasTransformer.transform(route.source, route.filePath)) ??
@@ -139,8 +136,8 @@ export async function buildLocalSearchIndexes(
 			config,
 			filePath: route.filePath,
 		});
-		index.addAll(
-			splitSearchSections(markdown, {
+		records.push(
+			...splitSearchSections(markdown, {
 				routePath: route.routePath,
 				title:
 					typeof frontmatter.title === "string"
@@ -150,11 +147,20 @@ export async function buildLocalSearchIndexes(
 					typeof frontmatter.description === "string"
 						? frontmatter.description
 						: undefined,
-			}),
+			}).map((section) => ({
+				url: section.url,
+				content: section.content,
+				language,
+				meta: {
+					title: section.title,
+					...(section.titles.length > 0
+						? { breadcrumb: section.titles.join(" › ") }
+						: {}),
+				},
+				filters: { scope: [scope] },
+			})),
 		);
 	}
 
-	return new Map(
-		[...indexes].map(([scope, index]) => [scope, JSON.stringify(index)]),
-	);
+	return records;
 }

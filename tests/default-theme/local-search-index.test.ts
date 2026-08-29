@@ -1,11 +1,7 @@
-import MiniSearch from "minisearch";
 import { describe, expect, it } from "vitest";
+import { getLocalSearchScopeForPath } from "../../src/default-theme/search.ts";
 import {
-	getLocalSearchScopeForPath,
-	LOCAL_SEARCH_INDEX_OPTIONS,
-} from "../../src/default-theme/search.ts";
-import {
-	buildLocalSearchIndexes,
+	buildLocalSearchRecords,
 	splitSearchSections,
 } from "../../src/default-theme/search-index.ts";
 import { fixtureSiteRoot } from "../helpers/fixtures.ts";
@@ -31,18 +27,18 @@ describe("splitSearchSections", () => {
 
 		expect(sections).toEqual([
 			expect.objectContaining({
-				id: "/guide#guide",
+				url: "/guide#guide",
 				title: "Guide",
-				text: "Start here Welcome to SolidBase.",
+				content: "Start here Welcome to SolidBase.",
 			}),
 			expect.objectContaining({
-				id: "/guide#install",
+				url: "/guide#install",
 				title: "Install",
 				titles: ["Guide"],
 			}),
 			expect.objectContaining({
-				id: "/guide#install-1",
-				text: "Second install section.",
+				url: "/guide#install-1",
+				content: "Second install section.",
 			}),
 		]);
 	});
@@ -85,48 +81,50 @@ describe("getLocalSearchScopeForPath", () => {
 	});
 });
 
-describe("buildLocalSearchIndexes", () => {
-	it("builds searchable indexes for included route scopes", async () => {
-		const indexes = await buildLocalSearchIndexes(
+describe("buildLocalSearchRecords", () => {
+	it("builds Pagefind records with language, metadata, and scope filters", async () => {
+		const records = await buildLocalSearchRecords(
 			fixtureSiteRoot,
 			{
 				themeConfig: { search: { local: true } },
 				markdown: {},
+				lang: "en-US",
 			} as any,
 			async () => null,
 		);
 
-		const rootIndex = MiniSearch.loadJSON(
-			indexes.get("root")!,
-			LOCAL_SEARCH_INDEX_OPTIONS,
-		);
-
-		expect(rootIndex.search("SolidBase").map((result) => result.id)).toEqual([
-			"/#home",
-			"/guide/getting-started#getting-started",
-		]);
+		expect(records).toContainEqual({
+			url: "/guide/getting-started#getting-started",
+			content: "Learn the basics Start with SolidBase.",
+			language: "en",
+			meta: { title: "Getting Started" },
+			filters: { scope: ["root"] },
+		});
 	});
 
 	it("omits pages with search disabled", async () => {
-		const indexes = await buildLocalSearchIndexes(
-			fixtureSiteRoot,
-			{ themeConfig: { search: { local: true } }, markdown: {} } as any,
-			async () => null,
-		);
-		const rootIndex = MiniSearch.loadJSON(
-			indexes.get("root")!,
-			LOCAL_SEARCH_INDEX_OPTIONS,
-		);
-
-		expect(rootIndex.search("Hidden Doc")).toEqual([]);
-	});
-
-	it("isolates indexes by the current route-axis selection", async () => {
-		const indexes = await buildLocalSearchIndexes(
+		const records = await buildLocalSearchRecords(
 			fixtureSiteRoot,
 			{
 				themeConfig: { search: { local: true } },
 				markdown: {},
+				lang: "en-US",
+			} as any,
+			async () => null,
+		);
+
+		expect(records.some((record) => record.meta?.title === "Hidden Doc")).toBe(
+			false,
+		);
+	});
+
+	it("tags records with the current route-axis selection", async () => {
+		const records = await buildLocalSearchRecords(
+			fixtureSiteRoot,
+			{
+				themeConfig: { search: { local: true } },
+				markdown: {},
+				lang: "en-US",
 				routes: {
 					path: "/{project}",
 					project: {
@@ -140,18 +138,14 @@ describe("buildLocalSearchIndexes", () => {
 			} as any,
 			async () => null,
 		);
-		const docsIndex = MiniSearch.loadJSON(
-			indexes.get("project:docs")!,
-			LOCAL_SEARCH_INDEX_OPTIONS,
-		);
-		const guideIndex = MiniSearch.loadJSON(
-			indexes.get("project:guide")!,
-			LOCAL_SEARCH_INDEX_OPTIONS,
-		);
 
-		expect(docsIndex.search("Welcome home")).not.toHaveLength(0);
-		expect(docsIndex.search("Learn the basics")).toEqual([]);
-		expect(guideIndex.search("Learn the basics")).not.toHaveLength(0);
-		expect(guideIndex.search("Welcome home")).toEqual([]);
+		expect(records.find((record) => record.url === "/#home")?.filters).toEqual({
+			scope: ["project:docs"],
+		});
+		expect(
+			records.find(
+				(record) => record.url === "/guide/getting-started#getting-started",
+			)?.filters,
+		).toEqual({ scope: ["project:guide"] });
 	});
 });

@@ -1,34 +1,41 @@
 import { Dialog } from "@kobalte/core/dialog";
 import { Search } from "@kobalte/core/search";
 import { useLocation, useNavigate } from "@solidjs/router";
-import type MiniSearch from "minisearch";
-import type { SearchResult } from "minisearch";
-import { createMemo, createSignal, onCleanup, onMount, Show } from "solid-js";
+import { createSignal, onCleanup, onMount, Show } from "solid-js";
 import IconCloseLine from "~icons/ri/close-line";
 import IconSearchLine from "~icons/ri/search-line";
 import { useRouteSolidBaseConfig } from "../../client/config.js";
 import type { DefaultThemeConfig } from "../index.js";
-import {
-	getLocalSearchScopeForPath,
-	LOCAL_SEARCH_INDEX_OPTIONS,
-	LOCAL_SEARCH_QUERY_OPTIONS,
-	type LocalSearchDocument,
-} from "../search.js";
+import { getLocalSearchScopeForPath } from "../search.js";
 import { defaultThemeTextConfig } from "../text.js";
 import styles from "./LocalSearch.module.css";
 
-type LocalSearchHit = SearchResult &
-	Pick<LocalSearchDocument, "title" | "titles" | "excerpt">;
+type LocalSearchHit = {
+	url: string;
+	title: string;
+	titles: string[];
+	excerpt: string;
+};
 
-type LocalSearchIndexState =
-	| { status: "idle" }
-	| { status: "loading" }
-	| {
-			status: "ready";
-			scope: string;
-			index: MiniSearch<LocalSearchDocument>;
-	  }
-	| { status: "error" };
+type PagefindResultData = {
+	url: string;
+	plain_excerpt: string;
+	meta: Record<string, string>;
+};
+
+type PagefindApi = {
+	init(): Promise<void>;
+	destroy(): Promise<void>;
+	debouncedSearch(
+		query: string,
+		options: { filters: { scope: string } },
+		debounce: number,
+	): Promise<{
+		results: Array<{ data(): Promise<PagefindResultData> }>;
+	} | null>;
+};
+
+const PAGEFIND_PATH = "/pagefind/pagefind.js";
 
 export default function LocalSearch(props: { shortcut?: boolean }) {
 	const config = useRouteSolidBaseConfig<DefaultThemeConfig>();
@@ -40,57 +47,88 @@ export default function LocalSearch(props: { shortcut?: boolean }) {
 	};
 	const [open, setOpen] = createSignal(false);
 	const [query, setQuery] = createSignal("");
-	const [indexState, setIndexState] = createSignal<LocalSearchIndexState>({
-		status: "idle",
-	});
+	const [results, setResults] = createSignal<LocalSearchHit[]>([]);
+	const [status, setStatus] = createSignal<
+		"idle" | "loading" | "ready" | "error"
+	>("idle");
+	let pagefind: PagefindApi | undefined;
+	let pagefindLanguage: string | undefined;
 	let inputRef: HTMLInputElement | undefined;
-	let requestId = 0;
+	let loadId = 0;
+	let searchId = 0;
 
 	const scope = () => getLocalSearchScopeForPath(location.pathname, config());
-	const results = createMemo<LocalSearchHit[]>(() => {
-		const value = query();
-		const state = indexState();
-		if (!value || state.status !== "ready" || state.scope !== scope())
-			return [];
 
-		return state.index
-			.search(value, LOCAL_SEARCH_QUERY_OPTIONS)
-			.slice(0, 10) as LocalSearchHit[];
-	});
-
-	async function loadIndex() {
-		const nextScope = scope();
-		const state = indexState();
-		if (state.status === "ready" && state.scope === nextScope) return;
-		const currentRequest = ++requestId;
-		setIndexState({ status: "loading" });
+	async function loadPagefind() {
+		const currentLoad = ++loadId;
+		const language = document.documentElement.lang.toLowerCase();
+		if (pagefind && pagefindLanguage === language) {
+			setStatus("ready");
+			return;
+		}
+		setStatus("loading");
 
 		try {
-			const [{ default: MiniSearch }, { default: indexes }] = await Promise.all(
-				[import("minisearch"), import("virtual:solidbase/local-search")],
-			);
-			const serialized = indexes[nextScope];
-			if (!serialized)
-				throw new Error(`Missing local search index for ${nextScope}`);
-			if (currentRequest !== requestId) return;
-			setIndexState({
-				status: "ready",
-				scope: nextScope,
-				index: MiniSearch.loadJSON(serialized, LOCAL_SEARCH_INDEX_OPTIONS),
-			});
+			if (pagefind) await pagefind.destroy();
+			pagefind = (await import(
+				/* @vite-ignore */ PAGEFIND_PATH
+			)) as PagefindApi;
+			await pagefind.init();
+			if (currentLoad !== loadId) return;
+			pagefindLanguage = language;
+			setStatus("ready");
+			if (query()) void search(query());
 		} catch {
-			if (currentRequest === requestId) {
-				setIndexState({ status: "error" });
-			}
+			if (currentLoad === loadId) setStatus("error");
+		}
+	}
+
+	async function search(value: string) {
+		setQuery(value);
+		const currentSearch = ++searchId;
+		if (!value) {
+			setResults([]);
+			if (pagefind) setStatus("ready");
+			return;
+		}
+		if (!pagefind) return;
+		setStatus("loading");
+
+		try {
+			const response = await pagefind.debouncedSearch(
+				value,
+				{ filters: { scope: scope() } },
+				150,
+			);
+			if (!response || currentSearch !== searchId) return;
+			const data = await Promise.all(
+				response.results.slice(0, 10).map((result) => result.data()),
+			);
+			if (currentSearch !== searchId) return;
+			setResults(
+				data.map((result) => ({
+					url: result.url,
+					title: result.meta.title ?? result.url,
+					titles: result.meta.breadcrumb?.split(" › ") ?? [],
+					excerpt: result.plain_excerpt,
+				})),
+			);
+			setStatus("ready");
+		} catch {
+			if (currentSearch === searchId) setStatus("error");
 		}
 	}
 
 	function onOpenChange(nextOpen: boolean) {
 		setOpen(nextOpen);
 		if (nextOpen) {
-			void loadIndex();
+			void loadPagefind();
 		} else {
+			loadId++;
+			searchId++;
 			setQuery("");
+			setResults([]);
+			setStatus(pagefind ? "ready" : "idle");
 		}
 	}
 
@@ -146,15 +184,15 @@ export default function LocalSearch(props: { shortcut?: boolean }) {
 						open
 						modal={false}
 						options={results()}
-						optionValue="id"
+						optionValue="url"
 						optionTextValue="title"
 						optionLabel="title"
 						placeholder={text.searchPlaceholder}
-						onInputChange={setQuery}
+						onInputChange={(value) => void search(value)}
 						onChange={(result) => {
 							if (!result) return;
 							onOpenChange(false);
-							void navigate(result.id);
+							void navigate(result.url);
 						}}
 						itemComponent={(props) => (
 							<Search.Item class={styles.item} item={props.item}>
@@ -167,9 +205,10 @@ export default function LocalSearch(props: { shortcut?: boolean }) {
 									</div>
 								</Show>
 								<Show when={props.item.rawValue.excerpt}>
-									<div class={styles.excerpt}>
-										{props.item.rawValue.excerpt}
-									</div>
+									<div
+										class={styles.excerpt}
+										innerHTML={props.item.rawValue.excerpt}
+									/>
 								</Show>
 							</Search.Item>
 						)}
@@ -180,17 +219,17 @@ export default function LocalSearch(props: { shortcut?: boolean }) {
 							<Search.Input ref={inputRef} class={styles.input} />
 						</Search.Control>
 						<div class={styles.content}>
-							<Show when={indexState().status === "loading"}>
+							<Show when={status() === "loading"}>
 								<div class={styles.status} role="status">
 									{text.searchLoading}
 								</div>
 							</Show>
-							<Show when={indexState().status === "error"}>
+							<Show when={status() === "error"}>
 								<div class={styles.status} role="alert">
 									{text.searchUnavailable}
 								</div>
 							</Show>
-							<Show when={indexState().status === "ready" && query()}>
+							<Show when={status() === "ready" && query()}>
 								<Search.NoResult class={styles.status} role="status">
 									{text.searchNoResults}
 								</Search.NoResult>
