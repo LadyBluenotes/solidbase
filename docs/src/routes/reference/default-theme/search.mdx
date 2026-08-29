@@ -1,0 +1,66 @@
+---
+title: Search
+---
+
+# Search
+
+The default theme supports built-in local search and hosted Algolia DocSearch.
+
+## Local Search
+
+Enable local search without an external service:
+
+```ts title="app.config.ts"
+themeConfig: {
+	search: {
+		local: true,
+	},
+},
+```
+
+SolidBase builds the search index from page titles, descriptions, headings, and Markdown content. Results are limited to the current locale and configured route axes, such as project and version.
+
+Local search supports prefix and fuzzy matching. The search engine and index load when search first opens. Use `Command+K` on macOS or `Control+K` on other platforms to open the dialog.
+
+Exclude a page from local search with frontmatter:
+
+```md
+---
+search: false
+---
+```
+
+## Algolia DocSearch
+
+Configure hosted DocSearch instead of local search:
+
+```ts title="app.config.ts"
+themeConfig: {
+	search: {
+		docsearch: {
+			appId: "YOUR_APP_ID",
+			apiKey: "YOUR_SEARCH_API_KEY",
+			indexName: "YOUR_INDEX_NAME",
+		},
+	},
+},
+```
+
+Local search and DocSearch are mutually exclusive.
+
+## Text
+
+Override search labels through `themeConfig.text`:
+
+```ts title="app.config.ts"
+themeConfig: {
+	text: {
+		search: "Search",
+		searchPlaceholder: "Search documentation",
+		searchClose: "Close search",
+		searchLoading: "Loading search…",
+		searchNoResults: "No results found",
+		searchUnavailable: "Search is unavailable",
+	},
+},
+```
